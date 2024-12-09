@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vulnerability Checker</title>
+  <style>
+    /* Global Styles */
+    body {
+      font-family: 'Arial', sans-serif;
+      background-color: #f8f9fa;
+      color: #333;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    .container {
+      background-color: #ffffff;
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      width: 80%;
+      max-width: 800px;
+      text-align: center;
+    }
+    h1 {
+      font-size: 28px;
+      color: #007bff;
+      margin-bottom: 20px;
+    }
+
+    /* File Input Section */
+    .file-input-container {
+      margin-bottom: 20px;
+    }
+    input[type="file"] {
+      font-size: 16px;
+      padding: 10px;
+      background-color: #007bff;
+      color: #ffffff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+    input[type="file"]:hover {
+      background-color: #0056b3;
+    }
+
+    /* Output Section */
+    #output {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 10px;
+      background-color: #e9ecef;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .output-item {
+      font-size: 16px;
+      line-height: 1.5;
+      margin: 10px 0;
+    }
+    .error {
+      color: #dc3545;
+      background-color: #f8d7da;
+      border-left: 5px solid #dc3545;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 5px;
+    }
+    .success {
+      color: #28a745;
+      background-color: #d4edda;
+      border-left: 5px solid #28a745;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 5px;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+      .container {
+        padding: 15px;
+      }
+      h1 {
+        font-size: 24px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h1>Vulnerability Checker</h1>
+    <p>Select a JavaScript, HTML, or CSS file to check for vulnerabilities such as XSS, CSRF, and more.</p>
+
+    <!-- File Input Section -->
+    <div class="file-input-container">
+      <input type="file" id="fileInput" accept=".js, .html, .css" />
+    </div>
+
+    <!-- Output Section -->
+    <div id="output"></div>
+  </div>
+
+  <script>
+    // Insecure code patterns to check
+    const insecurePatterns = [
+      /eval\(/,            // eval usage (code injection risk)
+      /require\(/,         // require usage
+      /JSON\.parse\(/,     // JSON.parse without validation
+      /child_process\.exec\(/, // direct child_process exec
+      /document\.write\(/, // document.write
+      /window\.location\=/, // Possible code injection via location
+      /setInterval\(/,     // setInterval with unsanitized inputs
+      /setTimeout\(/,      // setTimeout with unsanitized inputs
+    ];
+
+    // Cookie default names (insecure if used without proper security measures)
+    const defaultCookieNames = [
+      /session/,           // Default session cookie name
+      /JSESSIONID/,        // Java EE session cookie name
+      /PHPSESSID/,         // PHP session cookie name
+    ];
+
+    // Function to check for cross-site scripting (XSS)
+    const checkForXSS = (fileContent) => {
+      const xssPatterns = [
+        /<script.>.<\/script>/i, // Inline script tags
+        /<img.onerror=.>/i,     // Image tag with onerror event
+        /<a.href="javascript:.">/i, // javascript: URL
+      ];
+
+      return xssPatterns.some(pattern => pattern.test(fileContent));
+    };
+
+    // Function to check for CSRF (Cross-Site Request Forgery)
+    const checkForCSRF = (fileContent) => {
+      const csrfPatterns = [
+        /<form.method="post".>.*<\/form>/i, // Forms with POST method without CSRF tokens
+      ];
+
+      return csrfPatterns.some(pattern => pattern.test(fileContent));
+    };
+
+    // Function to check for brute-force prevention
+    const checkForBruteForce = (fileContent) => {
+      const bruteForcePatterns = [
+        /login.*password.*attempt/i, // Common login patterns with no brute-force protection
+        /attempt.count.*in.[^\d]/i, // Login attempts not being tracked
+      ];
+
+      return bruteForcePatterns.some(pattern => pattern.test(fileContent));
+    };
+
+    // Function to check for default cookie names
+    const checkForDefaultCookies = (fileContent) => {
+      return defaultCookieNames.some(pattern => pattern.test(fileContent));
+    };
+
+    const checkFileForVulnerabilities = (fileContent) => {
+      const issues = [];
+
+      // Check for insecure code patterns (e.g., eval, require)
+      insecurePatterns.forEach((pattern) => {
+        if (pattern.test(fileContent)) {
+          issues.push(`Insecure pattern found: ${pattern}`);
+        }
+      });
+
+      // Check for XSS (Cross-Site Scripting) vulnerabilities
+      if (checkForXSS(fileContent)) {
+        issues.push('Possible Cross-Site Scripting (XSS) attack detected.');
+      }
+
+      // Check for CSRF (Cross-Site Request Forgery) vulnerabilities
+      if (checkForCSRF(fileContent)) {
+        issues.push('Possible Cross-Site Request Forgery (CSRF) vulnerability detected.');
+      }
+
+      // Check for brute-force attack prevention
+      if (checkForBruteForce(fileContent)) {
+        issues.push('Possible Brute-Force attack vulnerability detected (lack of protection).');
+      }
+
+      // Check for default cookie names
+      if (checkForDefaultCookies(fileContent)) {
+        issues.push('Default session cookie names detected. Consider changing to a more secure name.');
+      }
+
+      return issues;
+    };
+
+    const handleFileUpload = (event) => {
+      const file = event.target.files[0];
+      if (!file) {
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const fileContent = e.target.result;
+        const vulnerabilities = checkFileForVulnerabilities(fileContent);
+
+        const outputDiv = document.getElementById('output');
+        outputDiv.innerHTML = '';
+
+        if (vulnerabilities.length > 0) {
+          vulnerabilities.forEach(issue => {
+            const p = document.createElement('p');
+            p.textContent = issue;
+            p.classList.add('error');
+            outputDiv.appendChild(p);
+          });
+        } else {
+          const p = document.createElement('p');
+          p.textContent = 'No vulnerabilities found.';
+          p.classList.add('success');
+          outputDiv.appendChild(p);
+        }
+      };
+
+      reader.readAsText(file);
+    };
+
+    // Attach the event listener to the file input
+    document.getElementById('fileInput').addEventListener('change', handleFileUpload);
+  </script>
+</body>
+</html>
